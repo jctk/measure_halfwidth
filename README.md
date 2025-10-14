@@ -1,33 +1,44 @@
-measure_halfwidth.py
+# measure_halfwidth.py
 
-Usage example:
+Sol'Exを用いて撮影した画像から、簡易的に半値幅を求めグラフ化するスクリプト。
 
-    python measure_halfwidth.py input.fits -o output.csv -w 2
+## 原理
 
-Options:
-    input.fits            入力FITSファイル（2次元画像）
-    --out, -o PATH        出力CSVファイル名（省略時は input_profile.csv）
-    --width, -w N         中心から左右Nピクセルずつを平均（0なら中心列のみ）
-    --angstrom-per-pixel, -a F  1ピクセルあたりの波長幅（Å, float）。指定すると波長スケールでPNGプロットも出力
-    --caption, -c TEXT    プロットのタイトル（キャプション）を任意の文字列で指定
+- 白色LEDの用に波長にむらのない連続した光源を使用する。
+- 任意のナローバンドフィルターを Sol'Ex にセットし一番輝度の高い場所が中央になるように fits 形式でキャプチャする。
+- SharpCap の Live Stacking などで十分な光量となるようにキャプチャし保存する。画像はRAWで画像する。ストレッチなど加工は行わない。
+- 撮影した画像の左右中心をY方向に1ピクセルずつ輝度を読み取る。
+- Y座標 x `angstrom-per-pixel`をY座標0からの相対波長とする。
+- 最大輝度のピクセルを100%の透過率としその50%のとなるピクセルの最小波長と最大波長の幅が半値幅。
 
-例:
-    python measure_halfwidth.py input.fits -o output.csv -w 2 -a 0.5 -c "My Spectrum"
+## Usage example
 
-This will read `input.fits`, average columns center-2..center+2 and write Y,intensity to `output.csv`.
+```bash
+$ python measure_halfwidth.py input.fits -o output.csv -w 2 -a 0.052 -c "Ha half Width"
+```
 
-Wavelength plotting:
+## Options
 
-    python measure_halfwidth.py input.fits -o output.csv -w 2 -a 0.5
+```python
+input.fits            入力FITSファイル（2次元画像）
+--out, -o PATH        出力CSVファイル名（省略時は input.csv）
+--width, -w N         中心から左右Nピクセルずつを平均（0なら中心列のみ）
+--angstrom-per-pixel, -a F  1ピクセルあたりの波長幅（Å, float）。指定すると波長スケールでPNGプロットも出力
+--caption, -c TEXT    プロットのタイトル（キャプション）を任意の文字列で指定
+```
 
-ここで `-a 0.5` は1ピクセルあたり0.5 Å を意味します。指定すると、CSV に加えて `output_profile.png` という波長 (Å) 対 輝度 のプロットが保存されます。
-
-Dependencies:
+## 必要なパッケージ
 - astropy
 - numpy
+- matplotlib
 
-Install:
+### Install
 
-    pip install -r requirements.txt
+```bash
+$ pip install -r requirements.txt
+```
 
-Note: CSV uses header `y,intensity`. Y is 0-indexed row number.
+## 動作の確認状況
+
+- SVBONY 7nm SIIフィルターでのみ確認している。光源や白黒モノクロカメラも特定の種類のみでの確認となる。
+- 他の環境や対象で正しく計測されない可能性はある。
