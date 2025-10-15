@@ -87,7 +87,6 @@ Thumbs.db
 
 # data and outputs
 *.csv
-*.fits
 *.png
 *.jpg
 *.jpeg

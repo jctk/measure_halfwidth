@@ -114,6 +114,18 @@ def main():
             ax.set_xlabel("Relative Wavelength (Å)")
             ax.set_ylabel("Intensity")
 
+            # Force plot lower-left to (0,0): set x and y limits so that left=0 and bottom=0
+            # Determine reasonable upper limits from data
+            x_min, x_max = 0.0, float(wavelengths[-1])
+            if np.any(wavelengths < 0):
+                # if data contains negative wavelengths, warn and clamp the axis left to 0
+                print("Warning: wavelengths contain negative values; x-axis left will be clamped to 0")
+            y_min = 0.0
+            # choose y_max slightly above the max to leave space for annotations
+            y_max = float(np.nanmax(profile)) * 1.05 if np.nanmax(profile) > 0 else 1.0
+            ax.set_xlim(x_min, x_max)
+            ax.set_ylim(y_min, y_max)
+
             # set caption/title if provided
             if args.caption:
                 ax.set_title(args.caption)
@@ -124,30 +136,47 @@ def main():
             # find indices where profile crosses half_val
             # we will find leftmost and rightmost crossing around the peak
             peak_idx = int(np.nanargmax(profile))
-            # left side
+            # Robust FWHM search: walk out from the peak through the contiguous region >= half_val
             left_idx = None
-            for i in range(peak_idx, 0, -1):
-                if profile[i] <= half_val and profile[i-1] > half_val:
-                    # linear interpolation for better precision
-                    x1, x2 = wavelengths[i], wavelengths[i-1]
-                    y1, y2 = profile[i], profile[i-1]
-                    t = (half_val - y1) / (y2 - y1)
-                    left_wl = x1 + t * (x2 - x1)
-                    left_idx = left_wl
-                    break
-            # right side
             right_idx = None
-            for i in range(peak_idx, len(profile)-1):
-                if profile[i] >= half_val and profile[i+1] < half_val:
-                    x1, x2 = wavelengths[i], wavelengths[i+1]
-                    y1, y2 = profile[i], profile[i+1]
+            # if the profile never reaches half_val, skip
+            if np.isnan(half_val) or np.isinf(half_val):
+                left_idx = right_idx = None
+            else:
+                # walk left from peak until we go below half_val
+                i = peak_idx
+                if profile[peak_idx] < half_val:
+                    # should not happen, but guard
+                    i = peak_idx
+                # move left while >= half_val
+                while i > 0 and profile[i] >= half_val:
+                    i -= 1
+                # now profile[i] < half_val or i==0
+                if i < peak_idx:
+                    idx_below = i
+                    idx_above = i + 1
+                    y1, y2 = profile[idx_below], profile[idx_above]
+                    x1, x2 = wavelengths[idx_below], wavelengths[idx_above]
                     if (y2 - y1) == 0:
-                        t = 0
+                        left_idx = float(x2)
                     else:
                         t = (half_val - y1) / (y2 - y1)
-                    right_wl = x1 + t * (x2 - x1)
-                    right_idx = right_wl
-                    break
+                        left_idx = float(x1 + t * (x2 - x1))
+
+                # walk right from peak until we go below half_val
+                j = peak_idx
+                while j < len(profile) - 1 and profile[j] >= half_val:
+                    j += 1
+                if j > peak_idx:
+                    idx_above = j - 1
+                    idx_below = j
+                    y1, y2 = profile[idx_above], profile[idx_below]
+                    x1, x2 = wavelengths[idx_above], wavelengths[idx_below]
+                    if (y2 - y1) == 0:
+                        right_idx = float(x1)
+                    else:
+                        t = (half_val - y1) / (y2 - y1)
+                        right_idx = float(x1 + t * (x2 - x1))
 
             # plot horizontal half-max line
             ax.hlines(half_val, wavelengths[0], wavelengths[-1], colors='C3', linestyles='--', label='Half max')
